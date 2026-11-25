@@ -30,6 +30,7 @@ import { Plugin } from "@opencode/plugin";
 
 let pipeline: Bun.Subprocess<"pipe", "ignore", "ignore"> | null = null;
 let turnActive = false; // the turn state machine: idle → step → idle
+let projectDir = "";    // the session's directory (the plugin context)
 
 function killPipeline(): void {
     if (pipeline === null) return;
@@ -215,7 +216,13 @@ export default Plugin.define({
                             pipeline = Bun.spawn(
                                 ["sh", "-c",
                                  `herbctl track --quiet | herbctl track --sentry ${wid}`],
-                                { stdin: "pipe", stdout: "ignore", stderr: "ignore" },
+                                { stdin: "pipe", stdout: "ignore", stderr: "ignore",
+                                  env: { ...process.env,
+                                      // the respawn directory, injected:
+                                      // the sentry's recover() reads it
+                                      // (the server env lacks the
+                                      // session id for the API route)
+                                      OPENCODE_PROJECT_DIR: projectDir } },
                             );
                         } catch {
                             // no herbctl/herbstclient — inert (the skill's
