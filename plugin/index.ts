@@ -29,6 +29,7 @@
 import { Plugin } from "@opencode/plugin";
 
 let pipeline: Bun.Subprocess<"pipe", "ignore", "ignore"> | null = null;
+let turnActive = false; // the turn state machine: idle → step → idle
 
 function killPipeline(): void {
     if (pipeline === null) return;
@@ -188,9 +189,10 @@ export default Plugin.define({
                     const type = (event as { type?: string }).type ?? "";
 
                     // ── TURN START: a fresh pipeline ──
-                    // (session.step.started: the agent's step begins —
-                    // the user just submitted; focus still the TUI.
-                    // The v2 stream has NO message.updated event.)
+                    // (session.step.started fires PER STEP — a turn
+                    // with tool calls runs several; the ARM happens
+                    // only on the FIRST step after an idle — the turn
+                    // boundary. The v2 stream has NO message.updated.)
                     if (type === "session.step.started") {
                         const sid = (event as {
                             data?: { sessionID?: string };
@@ -198,6 +200,8 @@ export default Plugin.define({
                             ?? (event as { properties?: { sessionID?: string } }).properties?.sessionID;
                         if (sid && process.env.OPENCODE_SESSION_ID
                             && sid !== process.env.OPENCODE_SESSION_ID) return;
+                        if (turnActive) continue; // a mid-turn step: no re-arm
+                        turnActive = true;
                         killPipeline();
                         try {
                             // the wid: the focused client right now (the
@@ -228,6 +232,7 @@ export default Plugin.define({
                             ?? (event as { properties?: { sessionID?: string } }).properties?.sessionID;
                         if (sid && process.env.OPENCODE_SESSION_ID
                             && sid !== process.env.OPENCODE_SESSION_ID) return;
+                        turnActive = false;
                         const p = pipeline;
                         pipeline = null;
                         if (p === null) continue;
