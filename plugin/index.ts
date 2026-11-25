@@ -4,7 +4,7 @@
 // + the `track` verb; the skill binds the agent-side discipline):
 //
 //   1. THE PIPELINE IS THE TURN:
-//   - TURN START (a user message): kill the previous pipeline; spawn
+//   - TURN START (a user message): END the previous pipeline; spawn
 //     a FRESH one, detached — it lives OUTSIDE opencode's process:
 //       herbctl track --quiet | herbctl track --sentry <wid>
 //     The tracker captures the calling terminal's window (focus is
@@ -12,10 +12,16 @@
 //     streams state events; the SENTRY MODE — composed over the
 //     tracker's stream — owns the notification surface (spawn on
 //     loss, hide on healthy, the persistent reopen on death).
-//   - TURN END (the agent goes idle): CANCEL — close the pipeline's
-//     stdin: the tracker sees EOF and ends; the sentry mode DEGRADES
-//     to its own event-driven watch and keeps covering the risk
-//     window (it survives opencode's exit).
+//   - TURN END (the agent goes idle): CANCEL — WRITE one character
+//     to the pipeline's stdin, then close it: the tracker treats
+//     any byte (or EOF) as the exit signal and ends, the sentry
+//     sees the tracker's EOF and follows, the sh wrapper is gone —
+//     the WHOLE tree exits without signals (a kill(2) on the sh
+//     parent does NOT reach the a|b grandchildren — the orphan
+//     generations that leaked before). If opencode itself dies, the
+//     write end closes with it → EOF → the tree still exits. The
+//     sentry mode DEGRADES to its own event-driven watch and keeps
+//     covering the risk window (it survives opencode's exit).
 //
 //   2. THE AGENT'S OPERATION OF THE ORCHESTRATOR WINDOW (the window
 //   that OWNS the agent's lifetime) — the tools moved in from
@@ -32,9 +38,13 @@ let pipeline: Bun.Subprocess<"pipe", "ignore", "ignore"> | null = null;
 let turnActive = false; // the turn state machine: idle → step → idle
 let projectDir = "";    // the session's directory (the plugin context)
 
-function killPipeline(): void {
+function endPipeline(): void {
     if (pipeline === null) return;
-    try { pipeline.kill(); } catch { /* gone */ }
+    // ONE character of stdin = the tracker's exit message; the EOF
+    // behind it is the backup. No kill(2): it lands on the sh parent
+    // and orphans the a|b grandchildren (the leak).
+    try { pipeline.stdin?.write("x"); } catch { /* gone */ }
+    try { pipeline.stdin?.end(); } catch { /* gone */ }
     pipeline = null;
 }
 
@@ -201,7 +211,7 @@ export default Plugin.define({
                         if (sid && process.env.OPENCODE_SESSION_ID
                             && sid !== process.env.OPENCODE_SESSION_ID) return;
                         turnActive = true;
-                        killPipeline();
+                        endPipeline();
                         try {
                             // the wid: the focused client right now (the
                             // trusted implicit) — ONE read, passed to the
@@ -245,9 +255,16 @@ export default Plugin.define({
                         const p = pipeline;
                         pipeline = null;
                         if (p === null) continue;
-                        // closing the write end = EOF for the tracker =
-                        // the end-of-turn cancel; the SENTRY MODE degrades
-                        // to its own watch and keeps the coverage
+                        // ONE character + close: the tracker exits on
+                        // the byte (or the EOF behind it); the sentry
+                        // follows the tracker's EOF; the sentry MODE
+                        // degrades to its own watch and keeps the
+                        // coverage
+                        try {
+                            p.stdin?.write("x");
+                        } catch {
+                            // already gone
+                        }
                         try {
                             p.stdin?.end();
                         } catch {
