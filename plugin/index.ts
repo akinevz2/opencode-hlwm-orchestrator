@@ -188,6 +188,7 @@ export default Plugin.define({
             void (async () => {
                 for await (const event of events) {
                     const type = (event as { type?: string }).type ?? "";
+                    console.error(`[orchestrate] event: ${type}`);
 
                     // ── TURN START: a fresh pipeline ──
                     // (session.step.started fires PER STEP — a turn
