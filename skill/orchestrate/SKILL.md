@@ -1,11 +1,11 @@
 ---
 name: orchestrate
 description: >
-  Mandatory discipline for ANY session that manipulates the
-  herbstluftwm session (windows, frames, tags, layout) or runs
-  live/probe tests on it: the track daemon that owns the
-  orchestrator's observation, and the ONLY sanctioned window/frame
-  removal path.
+  Mandatory discipline for ANY session that touches herbstluftwm in
+  any way (hlwm commands, windows, frames, tags, layout, live/probe
+  tests): TRACKING ON THE ORCHESTRATOR MUST BE ARMED FIRST — no
+  hlwm command runs without a tracker; the ONLY sanctioned
+  window/frame removal path.
 ---
 
 # track — the orchestrator contract
@@ -18,27 +18,34 @@ armed at the turn boundary. NO FILESYSTEM STATE exists anywhere in
 this contract — the process tree is the state; crashes leave nothing
 behind.
 
-## THE THREE RULES
+## THE FOUR RULES
 
-### 1. THE TURN BOUNDARY ARMS THE TRACKER
+### 0. NO HLWM COMMAND WITHOUT TRACKING — THE PRECONDITION
 
-The opencode plugin (opencode-hlwm-orchestrator) runs on EVERY user
-message:
+Dealing with ANY hlwm command — a window move, a frame split, a
+`herbctl` verb, a live test — REQUIRES an armed tracker FIRST:
 
-    herbctl track --quiet
+    pgrep -f "herbctl track" >/dev/null || \
+        { setsid herbctl track >/dev/null 2>&1 < /dev/null & }
 
-a blocking reporter that captures the CALLING TERMINAL's window (the
-focused client at spawn — the trusted implicit) and streams every
-state change to stdout as JSON lines. The plugin owns the
-notification lifecycle and the per-state recovery via that pipe —
-memory, never the filesystem. For agent-side sessions launched
-without the plugin, run `herbctl track` (bare) — the tracker then
-owns the notifications itself.
+- the opencode plugin normally does this for you (it arms
+  `herbctl track --quiet` on every user message);
+- if NO tracker is running (another client, a headless session, a
+  failed plugin), YOU launch one — detached, bare (it then owns the
+  notifications itself);
+- the check is a process check (`pgrep`), never a file check —
+  there is no filesystem state to consult.
 
-### 2. THE FOUR STATES (event-driven only — never polled)
+### 1. THE TURN BOUNDARY RE-ARMS THE TRACKER
 
-- **staleness** — retired: the wid is captured fresh each turn at
-  the tracker's spawn; nothing persists to go stale.
+A user message is the turn boundary: focus is authoritative exactly
+at the turn's first tool call. The plugin kills the previous
+tracker and spawns a fresh `herbctl track --quiet` — the monitored
+wid is re-captured every turn. Manually (no plugin): the same
+discipline — kill + re-arm on the first tool call.
+
+### 2. THE STATES (event-driven only — never polled)
+
 - **death** — the tracked window is closed. The tracker reports it
   and ends (the turn is over — no notification lock held past it);
   the recovery respawns the session ONCE via `herbctl terminal` in
@@ -48,12 +55,13 @@ owns the notifications itself.
 - **drop** — alive, on the focused tag, but not focused (same tag
   ONLY — cross-tag is separation). Recovery: jumpto back, no
   interrupt.
+- **healthy** — focused. Any loss notification closes.
 
 ### 3. CLOSE ONLY THROUGH THE GUARD — never raw herbstclient
 
     herbctl remove          (the machines: --tiling / --frame / --tag / --cleanup)
 
-The close verb REFUSES whenever the focused window IS the
+The remove verb REFUSES whenever the focused window IS the
 orchestrator (title-matched against the session title from
 OPENCODE's API — no filesystem). Raw `herbstclient close`/`remove`
 by an agent is FORBIDDEN — a bare `close` kills whatever the user
