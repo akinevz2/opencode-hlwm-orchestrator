@@ -188,11 +188,16 @@ export default Plugin.define({
                     const type = (event as { type?: string }).type ?? "";
 
                     // ── TURN START: a fresh pipeline ──
-                    if (type === "message.updated") {
-                        const msg = (event as {
-                            properties?: { message?: { role?: string } };
-                        }).properties?.message;
-                        if (msg?.role !== "user") return;
+                    // (session.step.started: the agent's step begins —
+                    // the user just submitted; focus still the TUI.
+                    // The v2 stream has NO message.updated event.)
+                    if (type === "session.step.started") {
+                        const sid = (event as {
+                            data?: { sessionID?: string };
+                        }).data?.sessionID
+                            ?? (event as { properties?: { sessionID?: string } }).properties?.sessionID;
+                        if (sid && process.env.OPENCODE_SESSION_ID
+                            && sid !== process.env.OPENCODE_SESSION_ID) return;
                         killPipeline();
                         try {
                             // the wid: the focused client right now (the
@@ -217,6 +222,12 @@ export default Plugin.define({
 
                     // ── TURN END: the agent goes idle — the cancel ──
                     if (type === "session.idle") {
+                        const sid = (event as {
+                            data?: { sessionID?: string };
+                        }).data?.sessionID
+                            ?? (event as { properties?: { sessionID?: string } }).properties?.sessionID;
+                        if (sid && process.env.OPENCODE_SESSION_ID
+                            && sid !== process.env.OPENCODE_SESSION_ID) return;
                         const p = pipeline;
                         pipeline = null;
                         if (p === null) continue;
