@@ -188,21 +188,18 @@ export default Plugin.define({
             void (async () => {
                 for await (const event of events) {
                     const type = (event as { type?: string }).type ?? "";
-                    console.error(`[orchestrate] event: ${type}`);
 
                     // ── TURN START: a fresh pipeline ──
-                    // (session.step.started fires PER STEP — a turn
-                    // with tool calls runs several; the ARM happens
-                    // only on the FIRST step after an idle — the turn
-                    // boundary. The v2 stream has NO message.updated.)
-                    if (type === "session.step.started") {
+                    // (session.execution.started: ONCE per turn — the
+                    // step events fire per model round-trip. The v2
+                    // stream has NO message.updated event.)
+                    if (type === "session.execution.started") {
                         const sid = (event as {
                             data?: { sessionID?: string };
                         }).data?.sessionID
                             ?? (event as { properties?: { sessionID?: string } }).properties?.sessionID;
                         if (sid && process.env.OPENCODE_SESSION_ID
                             && sid !== process.env.OPENCODE_SESSION_ID) return;
-                        if (turnActive) continue; // a mid-turn step: no re-arm
                         turnActive = true;
                         killPipeline();
                         try {
@@ -232,8 +229,12 @@ export default Plugin.define({
                         continue;
                     }
 
-                    // ── TURN END: the agent goes idle — the cancel ──
-                    if (type === "session.idle") {
+                    // ── TURN END: the execution finished — the cancel
+                    // (session.idle DOES NOT EXIST in the v2 stream; the
+                    // execution events are the turn boundary) ──
+                    if (type === "session.execution.succeeded"
+                        || type === "session.execution.failed"
+                        || type === "session.execution.interrupted") {
                         const sid = (event as {
                             data?: { sessionID?: string };
                         }).data?.sessionID
