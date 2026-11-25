@@ -36,7 +36,7 @@ The contract is IMPLEMENTED in
   session via `orchestrate reset`; on death it respawns the session
   ONCE via `herbctl terminal` in the directory OPENCODE's API
   reports).
-- **the guarded removal** — `herbctl orchestrate close [wid] |
+- **the guarded removal** — `herbctl remove [wid] |
   --frame`: THE window/frame removal tool — refuses whenever the
   orchestrator holds focus or is the target. Raw
   `herbstclient close`/`remove` by agents is forbidden.
