@@ -51,7 +51,7 @@ owns the notifications itself.
 
 ### 3. CLOSE ONLY THROUGH THE GUARD — never raw herbstclient
 
-    herbctl close            (the machines: --window / --tiling / --frame)
+    herbctl remove          (the machines: --tiling / --frame / --tag / --cleanup)
 
 The close verb REFUSES whenever the focused window IS the
 orchestrator (title-matched against the session title from
