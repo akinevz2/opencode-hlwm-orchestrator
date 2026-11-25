@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# bin/install — the EXTERNAL installer (no dots deployment): clones
+# are already complete; this wires the plugin + skill into the
+# opencode config (the Makefile install target, unwrapped).
+set -euo pipefail
+cd "$(dirname "$0")/.."   # the repo root
+exec make -s install SUB_DIR="$(pwd)"
