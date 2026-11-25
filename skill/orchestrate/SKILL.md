@@ -23,18 +23,20 @@ behind.
 ### 0. NO HLWM COMMAND WITHOUT TRACKING — THE PRECONDITION
 
 Dealing with ANY hlwm command — a window move, a frame split, a
-`herbctl` verb, a live test — REQUIRES an armed tracker FIRST:
+`herbctl` verb, a live test — REQUIRES a FRESH tracker armed at the
+turn boundary. Arming is KILL + RE-ARM, never check-and-skip: a
+merely-existing tracker tracks the PREVIOUS turn's capture (or is a
+pgrep self-match — the checking command's own cmdline), which is
+exactly the unwitnessed-drop bug:
 
-    pgrep -f "herbctl track" >/dev/null || \
-        { setsid herbctl track >/dev/null 2>&1 < /dev/null & }
+    pkill -f "herbctl [t]rack"; setsid herbctl track --quiet \
+        >/dev/null 2>&1 < /dev/null &
 
-- the opencode plugin normally does this for you (it arms
-  `herbctl track --quiet` on every user message);
-- if NO tracker is running (another client, a headless session, a
-  failed plugin), YOU launch one — detached, bare (it then owns the
-  notifications itself);
-- the check is a process check (`pgrep`), never a file check —
-  there is no filesystem state to consult.
+(the `[t]rack` bracket defeats the self-match). The opencode plugin
+does exactly this on every user message; agents without the plugin
+run the same two-step detached before the first WM manipulation.
+The check is a process check, never a file check — there is no
+filesystem state to consult.
 
 ### 1. THE TURN BOUNDARY RE-ARMS THE TRACKER
 
