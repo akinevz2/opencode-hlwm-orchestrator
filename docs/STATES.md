@@ -15,7 +15,7 @@ layer.
 
 - the notification: session-keyed replace-id (parallel sessions
   never fight), transient (self-expires when ignored), click =
-  `orchestrate-reset` (re-focus + interrupt the session; respawn
+  `orchestrate reset` (re-focus + interrupt the session; respawn
   ONCE via `herbctl terminal` in the OPENCODE-reported directory on
   death).
 - the daemon is ARMED ON EVERY USER MESSAGE (the plugin's event

@@ -33,7 +33,7 @@ The contract is IMPLEMENTED in
 - **the watch daemon** — `herbctl orchestrate watch`: a
   single-instance per-session `herbstclient -i` daemon that owns the
   transient loss notification (the click re-focuses + interrupts the
-  session via `orchestrate-reset`; on death it respawns the session
+  session via `orchestrate reset`; on death it respawns the session
   ONCE via `herbctl terminal` in the directory OPENCODE's API
   reports).
 - **the guarded removal** — `herbctl orchestrate close [wid] |
