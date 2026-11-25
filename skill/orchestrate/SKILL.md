@@ -18,33 +18,28 @@ armed at the turn boundary. NO FILESYSTEM STATE exists anywhere in
 this contract — the process tree is the state; crashes leave nothing
 behind.
 
-## THE FOUR RULES
+## THE THREE RULES
 
-### 0. NO HLWM COMMAND WITHOUT TRACKING — THE PRECONDITION
+### 0. TRACKING IS THE PLUGIN'S RESPONSIBILITY — THE AGENT NEVER ARMS IT
 
-Dealing with ANY hlwm command — a window move, a frame split, a
-`herbctl` verb, a live test — REQUIRES a FRESH tracker armed at the
-turn boundary. Arming is KILL + RE-ARM, never check-and-skip: a
-merely-existing tracker tracks the PREVIOUS turn's capture (or is a
-pgrep self-match — the checking command's own cmdline), which is
-exactly the unwitnessed-drop bug:
-
-    pkill -f "herbctl [t]rack"; setsid herbctl track --quiet \
-        >/dev/null 2>&1 < /dev/null &
-
-(the `[t]rack` bracket defeats the self-match). The opencode plugin
-does exactly this on every user message; agents without the plugin
-run the same two-step detached before the first WM manipulation.
-The check is a process check, never a file check — there is no
-filesystem state to consult.
+The opencode plugin (opencode-hlwm-orchestrator) owns the tracker's
+ENTIRE lifecycle: on EVERY user message it kills its previous
+`herbctl track --quiet` child and spawns a fresh one — the child
+handle lives in the plugin's memory, its stdout pipe is the event
+channel (no filesystem, no process-table queries, no pgrep: nothing
+discovers a tracker — the plugin KNOWS its own child). The agent
+NEVER arms, checks, or manages tracking; it relies on the plugin's
+per-turn re-arm. The wid itself is captured by the tracker at spawn
+from `herbstclient clients.focus` — and VERIFIED against the
+session title (from OPENCODE's API) contained in
+`clients.focus.title` — never from any process or file state.
 
 ### 1. THE TURN BOUNDARY RE-ARMS THE TRACKER
 
 A user message is the turn boundary: focus is authoritative exactly
-at the turn's first tool call. The plugin kills the previous
-tracker and spawns a fresh `herbctl track --quiet` — the monitored
-wid is re-captured every turn. Manually (no plugin): the same
-discipline — kill + re-arm on the first tool call.
+at the turn's first tool call — which is why the plugin re-spawns
+the tracker THERE. Manually (debugging only): `herbctl track` in a
+terminal of your own.
 
 ### 2. THE STATES (event-driven only — never polled)
 
